@@ -50,11 +50,11 @@ async function run() {
   const userCollection = db.collection("users");
 
   // add a properties in db
-//   app.post("/add-properties", async (req, res) => {
-//     const plant = req.body;
-//     const result = await propertiesCollection.insertOne(plant);
-//     res.send(result);
-//   });
+  app.post("/add-properties", async (req, res) => {
+    const plant = req.body;
+    const result = await propertiesCollection.insertOne(plant);
+    res.send(result);
+  });
 
   // get all properties data from db
 //   app.get("/properties", async (req, res) => {
