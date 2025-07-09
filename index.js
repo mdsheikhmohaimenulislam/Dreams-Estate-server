@@ -57,10 +57,10 @@ async function run() {
   });
 
   // get all properties data from db
-//   app.get("/properties", async (req, res) => {
-//     const result = await propertiesCollection.find().toArray();
-//     res.send(result);
-//   });
+  app.get("/properties", async (req, res) => {
+    const result = await propertiesCollection.find().toArray();
+    res.send(result);
+  });
 
   // get one properties data from db
 //   app.get("/properties/:id", async (req, res) => {
