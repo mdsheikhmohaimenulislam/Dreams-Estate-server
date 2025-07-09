@@ -47,7 +47,7 @@ async function run() {
   const db = client.db("dreamsEstateDB");
   const propertiesCollection = db.collection("properties");
   const wishlistCollection = db.collection("wishlist");
-  const userCollection = db.collection("users");
+  const offersCollection = db.collection("users");
 
   // add a properties in db
   app.post("/add-properties", async (req, res) => {
@@ -63,22 +63,26 @@ async function run() {
   });
 
   // get one properties data from db
-//   app.get("/properties/:id", async (req, res) => {
-//     try {
-//       const id = req.params.id;
-//       const result = await propertiesCollection.findOne({
-//         _id: new ObjectId(id),
-//       });
+app.get("/properties/:id", async (req, res) => {
+  const id = req.params.id;
 
-//       if (!result) {
-//         return res.status(404).json({ message: "Plant not found" });
-//       }
+  // ✅ Validate ObjectId
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid property ID" });
+  }
 
-//       res.send(result);
-//     } catch (error) {
-//       res.status(500).json({ message: "Server error", error: error.message });
-//     }
-//   });
+  try {
+    const result = await propertiesCollection.findOne({ _id: new ObjectId(id) });
+
+    if (!result) {
+      return res.status(404).json({ message: "Property not found" });
+    }
+
+    res.send(result);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
 
   // Create payment intent for order
 //   app.post("/create-payment-intent", async (req, res) => {
@@ -149,6 +153,32 @@ async function run() {
 //     res.send(result);
 //   });
 
+
+
+// OfferedProperties section
+app.patch('/offers/:id/accept', async (req, res) => {
+  const id = req.params.id;
+  const offer = await offersCollection.findOne({ _id: new ObjectId(id) });
+
+  if (!offer) return res.status(404).send({ error: 'Offer not found' });
+
+  // 1. Accept this offer
+  await offersCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { status: "accepted" } }
+  );
+
+  // 2. Reject all other offers for the same property
+  await offersCollection.updateMany(
+    {
+      propertyId: offer.propertyId,
+      _id: { $ne: new ObjectId(id) }
+    },
+    { $set: { status: "rejected" } }
+  );
+
+  res.send({ success: true });
+});
 
 
 
