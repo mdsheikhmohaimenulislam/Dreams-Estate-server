@@ -153,23 +153,23 @@ async function run() {
 
 
       // Update Marathon
-    // app.put("/properties/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const filter = { _id: new ObjectId(id) };
-    //   const options = { upsert: true };
-    //   const updateProperties = req.body;
+    app.put("/properties/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updateProperties = req.body;
 
 
-    //   const updateDoc = {
-    //     $set: updateProperties,
-    //   };
-    //   const result = await propertiesCollection.updateOne(
-    //     filter,
-    //     updateDoc,
-    //     options
-    //   );
-    //   res.send(result);
-    // });
+      const updateDoc = {
+        $set: updateProperties,
+      };
+      const result = await propertiesCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+      res.send(result);
+    });
 
 
 
