@@ -68,7 +68,7 @@ async function run() {
   app.get("/properties/:id", async (req, res) => {
     const id = req.params.id;
 
-    // ✅ Validate ObjectId
+    //  Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid property ID" });
     }
@@ -170,7 +170,7 @@ async function run() {
 
       res.status(200).json(wishlist);
 
-      console.log("Fetching wishlist for:", req.params.email); // ✅ fixed
+    //   console.log("Fetching wishlist for:", req.params.email); //  fixed
     } catch (err) {
       console.error("Failed to fetch wishlist:", err);
       res.status(500).json({ message: "Failed to fetch wishlist" });
@@ -179,16 +179,26 @@ async function run() {
 
   // make offer button section
   app.post("/makeOffer", async (req, res) => {
-    const allData = req.body;
-
     const data = {
       ...req.body,
       createdAt: new Date(),
     };
 
-    const result = await userMakeOfferCollection.insertOne(data)
-    res.send(result)
+    const result = await userMakeOfferCollection.insertOne(data);
+    res.send(result);
   });
+
+
+
+app.get("/makeOffer", async (req, res) => {
+  try {
+    const result = await userMakeOfferCollection.find().toArray();
+    res.status(200).json(result);
+  } catch (err) {
+    console.error("Failed to fetch offers:", err);
+    res.status(500).json({ message: "Failed to fetch offers" });
+  }
+});
 
   // Create payment intent for order
   //   app.post("/create-payment-intent", async (req, res) => {
