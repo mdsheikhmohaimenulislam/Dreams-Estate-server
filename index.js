@@ -49,6 +49,7 @@ async function run() {
   const reviewCollection = db.collection("reviews");
   const wishlistCollection = db.collection("wishlist");
   const offersCollection = db.collection("users");
+  const userMakeOfferCollection = db.collection("makeOffer");
 
   // add a properties in db
   app.post("/add-properties", async (req, res) => {
@@ -176,8 +177,18 @@ async function run() {
     }
   });
 
+  // make offer button section
+  app.post("/makeOffer", async (req, res) => {
+    const allData = req.body;
 
+    const data = {
+      ...req.body,
+      createdAt: new Date(),
+    };
 
+    const result = await userMakeOfferCollection.insertOne(data)
+    res.send(result)
+  });
 
   // Create payment intent for order
   //   app.post("/create-payment-intent", async (req, res) => {
@@ -291,8 +302,7 @@ async function run() {
     res.send(result);
   });
 
-
-    // DELETE: Remove a wishlist item
+  // DELETE: Remove a wishlist item
   app.delete("/wishlist/:id", async (req, res) => {
     // const id = req.params.id;
     // const result = await wishlistCollection.deleteOne({
@@ -300,23 +310,22 @@ async function run() {
     // });
     // res.send(result);
 
-
-      //   console.log('DELETE wishlist called with id:', req.params.id); // Add this
+    //   console.log('DELETE wishlist called with id:', req.params.id); // Add this
     try {
       const id = req.params.id;
-      const result = await wishlistCollection.deleteOne({ _id: new ObjectId(id) });
+      const result = await wishlistCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
       if (result.deletedCount === 1) {
         res.status(200).json({ deletedCount: 1 });
       } else {
-        res.status(404).json({ message: 'Wishlist item not found' });
+        res.status(404).json({ message: "Wishlist item not found" });
       }
     } catch (err) {
-      console.error('Delete wishlist error:', err);
-      res.status(500).json({ message: 'Failed to delete wishlist item' });
+      console.error("Delete wishlist error:", err);
+      res.status(500).json({ message: "Failed to delete wishlist item" });
     }
-
   });
-
 
   // Deleted section
   app.delete("/properties/:id", async (req, res) => {
