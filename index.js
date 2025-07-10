@@ -48,6 +48,7 @@ async function run() {
   const db = client.db("dreamsEstateDB");
   const propertiesCollection = db.collection("properties");
   const reviewCollection = db.collection("reviews");
+  const wishlistCollection = db.collection('wishlist');
   const offersCollection = db.collection("users");
 
   // add a properties in db
@@ -141,8 +142,61 @@ app.post('/reviews', async (req, res) => {
 
 
 
+// wishlist section
 
+// POST: Add to wishlist
+app.post('/wishlist', async (req, res) => {
+  const { userEmail, propertyId } = req.body;
 
+  if (!userEmail || !propertyId) {
+    return res.status(400).json({ message: 'userEmail and propertyId are required' });
+  }
+
+  try {
+    const result = await wishlistCollection.insertOne({
+      userEmail,
+      propertyId,
+      createdAt: new Date()
+    });
+
+    res.status(201).json({ message: 'Added to wishlist', data: result });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: 'Already in wishlist' });
+    }
+    res.status(500).json({ message: 'Failed to add to wishlist' });
+  }
+});
+
+// GET: Get all wishlist items for a user
+// app.get('/wishlist/:email', async (req, res) => {
+//   try {
+//     const wishlist = await wishlistCollection
+//       .find({ userEmail: req.params.email })
+//       .toArray();
+
+//     res.status(200).json(wishlist);
+//   } catch (err) {
+//     res.status(500).json({ message: 'Failed to fetch wishlist' });
+//   }
+// });
+
+// DELETE: Remove a wishlist item
+// app.delete('/wishlist/:id', async (req, res) => {
+//   try {
+//     const result = await wishlistCollection.deleteOne({
+//       _id: new ObjectId(req.params.id),
+//     });
+
+//     if (result.deletedCount === 1) {
+//       res.status(200).json({ message: 'Removed from wishlist' });
+//     } else {
+//       res.status(404).json({ message: 'Wishlist item not found' });
+//     }
+//   } catch (err) {
+//     res.status(500).json({ message: 'Failed to delete from wishlist' });
+//   }
+// });
 
 
 
