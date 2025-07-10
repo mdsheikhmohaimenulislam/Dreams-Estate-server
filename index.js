@@ -6,6 +6,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 const stripe = require("stripe")(process.env.STRIPE_SK_KEY);
 
+
 const port = process.env.PORT || 5000;
 const app = express();
 // middleware
@@ -46,7 +47,7 @@ const client = new MongoClient(process.env.MONGODB_URI, {
 async function run() {
   const db = client.db("dreamsEstateDB");
   const propertiesCollection = db.collection("properties");
-  const wishlistCollection = db.collection("wishlist");
+  const reviewCollection = db.collection("reviews");
   const offersCollection = db.collection("users");
 
   // add a properties in db
@@ -83,6 +84,70 @@ app.get("/properties/:id", async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+// get Reviews section
+app.get('/reviews/:propertyId', async (req, res) => {
+  const { propertyId } = req.params;
+  try {
+    const reviews = await reviewCollection
+      .find({ propertyId })
+      .sort({ createdAt: -1 }) // newest first
+      .toArray();
+
+    res.status(200).json(reviews);
+  } catch (err) {
+    console.error("Error fetching reviews:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+
+
+// Reviews section
+app.post('/reviews', async (req, res) => {
+  const { userEmail, propertyId, rating, comment } = req.body;
+
+//   console.log("Incoming review:", req.body);
+
+  try {
+    const result = await reviewCollection.insertOne({
+      userEmail,
+      propertyId,
+      rating,
+      comment,
+      createdAt: new Date(),
+    });
+
+    res.status(201).json(result); // or result.insertedId
+  } catch (err) {
+    console.error("Failed to insert review:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
 
   // Create payment intent for order
 //   app.post("/create-payment-intent", async (req, res) => {
@@ -212,6 +277,31 @@ app.patch('/offers/:id/accept', async (req, res) => {
   });
 
 
+
+
+  app.delete('/reviews/:id', async (req, res) => {
+  const reviewId = req.params.id;
+  const userEmail = req.body.userEmail; // or get from auth middleware
+
+  try {
+    // Find the review to verify ownership (optional but recommended)
+    const review = await reviewCollection.findOne({ _id: new ObjectId(reviewId) });
+    if (!review) {
+      return res.status(404).json({ message: "Review not found" });
+    }
+
+    if (review.userEmail !== userEmail) {
+      return res.status(403).json({ message: "Not authorized to delete this review" });
+    }
+
+    // Delete the review
+    await reviewCollection.deleteOne({ _id: new ObjectId(reviewId) });
+    res.status(200).json({ message: "Review deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to delete review" });
+  }
+});
 
 
   try {
