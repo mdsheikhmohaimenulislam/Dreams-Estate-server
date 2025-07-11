@@ -50,6 +50,7 @@ async function run() {
   const wishlistCollection = db.collection("wishlist");
   const offersCollection = db.collection("users");
   const userMakeOfferCollection = db.collection("makeOffer");
+  const ordersCollection = db.collection("order");
 
   // add a properties in db
   app.post("/add-properties", async (req, res) => {
@@ -170,7 +171,7 @@ async function run() {
 
       res.status(200).json(wishlist);
 
-    //   console.log("Fetching wishlist for:", req.params.email); //  fixed
+      //   console.log("Fetching wishlist for:", req.params.email); //  fixed
     } catch (err) {
       console.error("Failed to fetch wishlist:", err);
       res.status(500).json({ message: "Failed to fetch wishlist" });
@@ -188,17 +189,51 @@ async function run() {
     res.send(result);
   });
 
+  app.get("/makeOffer", async (req, res) => {
+    try {
+      const result = await userMakeOfferCollection.find().toArray();
+      res.status(200).json(result);
+    } catch (err) {
+      console.error("Failed to fetch offers:", err);
+      res.status(500).json({ message: "Failed to fetch offers" });
+    }
+  });
 
+  // create payment intent for order
+  app.post("/create-paymentSecret", async (req, res) => {
+    const { price, orderPropertyId } = req.body;
+    const property = await userMakeOfferCollection.findOne({
+      _id: new ObjectId(orderPropertyId),
+    });
+    if (!property)
+      return res.status(404).send({ message: "property Not Found" });
 
-app.get("/makeOffer", async (req, res) => {
+    const totalPrice = price * 100;
+    // Stripe.......
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: totalPrice,
+      currency: "usd",
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
+
+    // console.log(paymentIntent);
+
+    res.send({ clientSecret: paymentIntent.client_secret });
+  });
+
+    // save order data in orders collection in db
+app.post('/order', async (req, res) => {
+  const orderData = req.body;
   try {
-    const result = await userMakeOfferCollection.find().toArray();
-    res.status(200).json(result);
-  } catch (err) {
-    console.error("Failed to fetch offers:", err);
-    res.status(500).json({ message: "Failed to fetch offers" });
+    const result = await ordersCollection.insertOne(orderData);
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: 'Failed to insert order', error: error.message });
   }
 });
+
 
   // Create payment intent for order
   //   app.post("/create-payment-intent", async (req, res) => {
