@@ -105,6 +105,27 @@ async function run() {
     }
   });
 
+
+
+// Get all reviews by user email
+app.get("/my-reviews/:email", async (req, res) => {
+  const { email } = req.params;
+
+  try {
+    const userReviews = await reviewCollection
+      .find({ userEmail: email })
+      .sort({ createdAt: -1 }) // Optional: latest first
+      .toArray();
+
+    res.status(200).json(userReviews);
+  } catch (err) {
+    console.error("Error fetching user reviews:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
   // Reviews section
   app.post("/reviews", async (req, res) => {
     // const review = req.body;
@@ -223,16 +244,42 @@ async function run() {
     res.send({ clientSecret: paymentIntent.client_secret });
   });
 
-    // save order data in orders collection in db
-app.post('/order', async (req, res) => {
-  const orderData = req.body;
-  try {
-    const result = await ordersCollection.insertOne(orderData);
+  // save order data in orders collection in db
+  app.post("/order", async (req, res) => {
+    const orderData = req.body;
+    try {
+      const result = await ordersCollection.insertOne(orderData);
+      res.send(result);
+    } catch (error) {
+      res
+        .status(500)
+        .send({ message: "Failed to insert order", error: error.message });
+    }
+  });
+
+  //   fiend all data get  property
+  app.get("/order", async (req, res) => {
+    const allData = req.body;
+    const result = await ordersCollection.find(allData).toArray();
     res.send(result);
-  } catch (error) {
-    res.status(500).send({ message: 'Failed to insert order', error: error.message });
-  }
-});
+  });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
   // Create payment intent for order
@@ -379,6 +426,34 @@ app.post('/order', async (req, res) => {
     const result = propertiesCollection.deleteOne(query);
     res.send(result);
   });
+
+
+
+
+
+
+app.delete("/my-reviews/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await reviewCollection.deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount === 1) {
+      res.status(200).json({ message: "Review deleted successfully" });
+    } else {
+      res.status(404).json({ message: "Review not found" });
+    }
+  } catch (err) {
+    console.error("Error deleting review:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+
+
+
 
   app.delete("/reviews/:id", async (req, res) => {
     const reviewId = req.params.id;
