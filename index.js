@@ -105,26 +105,22 @@ async function run() {
     }
   });
 
+  // Get all reviews by user email
+  app.get("/my-reviews/:email", async (req, res) => {
+    const { email } = req.params;
 
+    try {
+      const userReviews = await reviewCollection
+        .find({ userEmail: email })
+        .sort({ createdAt: -1 }) // Optional: latest first
+        .toArray();
 
-// Get all reviews by user email
-app.get("/my-reviews/:email", async (req, res) => {
-  const { email } = req.params;
-
-  try {
-    const userReviews = await reviewCollection
-      .find({ userEmail: email })
-      .sort({ createdAt: -1 }) // Optional: latest first
-      .toArray();
-
-    res.status(200).json(userReviews);
-  } catch (err) {
-    console.error("Error fetching user reviews:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
+      res.status(200).json(userReviews);
+    } catch (err) {
+      console.error("Error fetching user reviews:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   // Reviews section
   app.post("/reviews", async (req, res) => {
@@ -210,15 +206,20 @@ app.get("/my-reviews/:email", async (req, res) => {
     res.send(result);
   });
 
-  app.get("/makeOffer", async (req, res) => {
-    try {
-      const result = await userMakeOfferCollection.find().toArray();
-      res.status(200).json(result);
-    } catch (err) {
-      console.error("Failed to fetch offers:", err);
-      res.status(500).json({ message: "Failed to fetch offers" });
-    }
-  });
+app.get("/makeOffer/:email", async (req, res) => {
+  try {
+    const email = req.params.email;
+
+    const result = await userMakeOfferCollection
+      .find({ buyerEmail: email }) // Use correct field name
+      .toArray();
+
+    res.status(200).json(result);
+  } catch (err) {
+    console.error("Failed to fetch offers:", err);
+    res.status(500).json({ message: "Failed to fetch offers" });
+  }
+});
 
   // create payment intent for order
   app.post("/create-paymentSecret", async (req, res) => {
@@ -265,22 +266,43 @@ app.get("/my-reviews/:email", async (req, res) => {
   });
 
 
+  
+  // Get all sold properties for a specific agent
+  app.get("/sold-properties/:agentEmail", async (req, res) => {
+    const { agentEmail } = req.params;
+    // console.log("agentEmail:", agentEmail);
+
+    try {
+      const sold = await ordersCollection.find({}).toArray();
+
+    //   console.log("SOLD DATA:", sold);
+      res.status(200).json(sold);
+    } catch (err) {
+      console.error("Error fetching sold properties:", err);
+      res.status(500).json({ message: "Failed to fetch sold properties" });
+    }
+  });
 
 
+//   app.get("/sold-properties/:agentEmail", async (req, res) => {
+//   const { agentEmail } = req.params;
+//   console.log("agentEmail:", agentEmail);
 
+//   try {
+//     const sold = await ordersCollection
+//       .find({
+//         agentEmail,
+//         transactionId: { $exists: true, $ne: null } // ✅ Must exist
+//       })
+//       .toArray();
 
-
-
-
-
-
-
-
-
-
-
-
-
+//     console.log("SOLD DATA:", sold);
+//     res.status(200).json(sold);
+//   } catch (err) {
+//     console.error("Error fetching sold properties:", err);
+//     res.status(500).json({ message: "Failed to fetch sold properties" });
+//   }
+// })
 
   // Create payment intent for order
   //   app.post("/create-payment-intent", async (req, res) => {
@@ -427,33 +449,24 @@ app.get("/my-reviews/:email", async (req, res) => {
     res.send(result);
   });
 
+  app.delete("/my-reviews/:id", async (req, res) => {
+    const { id } = req.params;
 
+    try {
+      const result = await reviewCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
 
-
-
-
-app.delete("/my-reviews/:id", async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const result = await reviewCollection.deleteOne({ _id: new ObjectId(id) });
-
-    if (result.deletedCount === 1) {
-      res.status(200).json({ message: "Review deleted successfully" });
-    } else {
-      res.status(404).json({ message: "Review not found" });
+      if (result.deletedCount === 1) {
+        res.status(200).json({ message: "Review deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Review not found" });
+      }
+    } catch (err) {
+      console.error("Error deleting review:", err);
+      res.status(500).json({ error: err.message });
     }
-  } catch (err) {
-    console.error("Error deleting review:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
-
-
-
-
+  });
 
   app.delete("/reviews/:id", async (req, res) => {
     const reviewId = req.params.id;
