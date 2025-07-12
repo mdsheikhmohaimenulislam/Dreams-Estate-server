@@ -288,7 +288,7 @@ app.get("/makeOffer/:email", async (req, res) => {
 
 
 
-// Requested / Offered Properties
+// Requested agent email fine
 app.get("/agent-offers/:agentEmail", async (req, res) => {
   const { agentEmail } = req.params;
   console.log("Received agentEmail:", agentEmail);
@@ -313,35 +313,36 @@ app.get("/agent-offers/:agentEmail", async (req, res) => {
 
 
 
-// Requested / Offered Properties update status
-// app.patch("/offers/:id", async (req, res) => {
-//   const { id } = req.params;
-//   const { status, propertyId } = req.body;
+// Requested status update section
+app.patch("/offers/:id", async (req, res) => {
+  const { id } = req.params;
+  const { status, propertyId } = req.body;
 
-//   try {
-//     // Update the clicked offer
-//     await userMakeOfferCollection.updateOne(
-//       { _id: new ObjectId(id) },
-//       { $set: { status } }
-//     );
 
-//     // If accepted, reject all other offers for same property
-//     if (status === "accepted") {
-//       await userMakeOfferCollection.updateMany(
-//         {
-//           propertyId,
-//           _id: { $ne: new ObjectId(id) },
-//         },
-//         { $set: { status: "rejected" } }
-//       );
-//     }
+  try {
+    // Update the clicked offer
+    await userMakeOfferCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { status } }
+    );
 
-//     res.status(200).json({ message: "Offer updated successfully" });
-//   } catch (err) {
-//     console.error("Failed to update offer:", err);
-//     res.status(500).json({ error: "Failed to update offer status" });
-//   }
-// });
+    //! If accepted, reject all other offers for same property ( ak tu bus ta hbe ???)
+    if (status === "accepted") {
+      await userMakeOfferCollection.updateMany(
+        {
+          propertyId,
+          _id: { $ne: new ObjectId(id) },
+        },
+        { $set: { status: "rejected" } }
+      );
+    }
+
+    res.status(200).json({ message: "Offer updated successfully" });
+  } catch (err) {
+    console.error("Failed to update offer:", err);
+    res.status(500).json({ error: "Failed to update offer status" });
+  }
+});
 
 
 
