@@ -89,6 +89,7 @@ async function run() {
     }
   });
 
+
   // get Reviews section
   app.get("/reviews/:propertyId", async (req, res) => {
     const { propertyId } = req.params;
@@ -348,7 +349,24 @@ app.patch("/offers/:id", async (req, res) => {
 
 
 
+// admin Manage properties section properties update
 
+app.patch("/properties/:id", async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  try {
+    const result = await propertiesCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { status } } //  update `status` field
+    );
+
+    res.status(200).json(result);
+  } catch (err) {
+    console.error("Error updating status:", err);
+    res.status(500).json({ message: "Failed to update status" });
+  }
+});
 
 
 
