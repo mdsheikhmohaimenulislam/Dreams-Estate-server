@@ -48,9 +48,10 @@ async function run() {
   const propertiesCollection = db.collection("properties");
   const reviewCollection = db.collection("reviews");
   const wishlistCollection = db.collection("wishlist");
-  const offersCollection = db.collection("users");
+  //   const userDataCollection = db.collection("users");
   const userMakeOfferCollection = db.collection("makeOffer");
   const ordersCollection = db.collection("order");
+  const userDataCollection = db.collection("userData");
 
   // add a properties in db
   app.post("/add-properties", async (req, res) => {
@@ -88,7 +89,6 @@ async function run() {
       res.status(500).json({ message: "Server error", error: error.message });
     }
   });
-
 
   // get Reviews section
   app.get("/reviews/:propertyId", async (req, res) => {
@@ -207,20 +207,20 @@ async function run() {
     res.send(result);
   });
 
-app.get("/makeOffer/:email", async (req, res) => {
-  try {
-    const email = req.params.email;
+  app.get("/makeOffer/:email", async (req, res) => {
+    try {
+      const email = req.params.email;
 
-    const result = await userMakeOfferCollection
-      .find({ buyerEmail: email }) // Use correct field name
-      .toArray();
+      const result = await userMakeOfferCollection
+        .find({ buyerEmail: email }) // Use correct field name
+        .toArray();
 
-    res.status(200).json(result);
-  } catch (err) {
-    console.error("Failed to fetch offers:", err);
-    res.status(500).json({ message: "Failed to fetch offers" });
-  }
-});
+      res.status(200).json(result);
+    } catch (err) {
+      console.error("Failed to fetch offers:", err);
+      res.status(500).json({ message: "Failed to fetch offers" });
+    }
+  });
 
   // create payment intent for order
   app.post("/create-paymentSecret", async (req, res) => {
@@ -266,8 +266,6 @@ app.get("/makeOffer/:email", async (req, res) => {
     res.send(result);
   });
 
-
-  
   // Get all sold properties for a specific agent
   app.get("/sold-properties/:agentEmail", async (req, res) => {
     const { agentEmail } = req.params;
@@ -276,7 +274,7 @@ app.get("/makeOffer/:email", async (req, res) => {
     try {
       const sold = await ordersCollection.find({}).toArray();
 
-    //   console.log("SOLD DATA:", sold);
+      //   console.log("SOLD DATA:", sold);
       res.status(200).json(sold);
     } catch (err) {
       console.error("Error fetching sold properties:", err);
@@ -284,116 +282,209 @@ app.get("/makeOffer/:email", async (req, res) => {
     }
   });
 
+  // Requested agent email fine
+  app.get("/agent-offers/:agentEmail", async (req, res) => {
+    const { agentEmail } = req.params;
+    console.log("Received agentEmail:", agentEmail);
 
+    try {
+      const offers = await userMakeOfferCollection
+        .find({ agentEmail })
+        .sort({ createdAt: -1 })
+        .toArray();
 
+      if (!offers.length) {
+        console.log("No offers found for:", agentEmail);
+      }
 
-
-
-// Requested agent email fine
-app.get("/agent-offers/:agentEmail", async (req, res) => {
-  const { agentEmail } = req.params;
-  console.log("Received agentEmail:", agentEmail);
-
-  try {
-    const offers = await userMakeOfferCollection
-      .find({ agentEmail })
-      .sort({ createdAt: -1 })
-      .toArray();
-
-    if (!offers.length) {
-      console.log("No offers found for:", agentEmail);
+      res.status(200).json(offers);
+    } catch (err) {
+      console.error("Error fetching offers:", err);
+      res.status(500).json({ error: "Failed to fetch offers" });
     }
+  });
 
-    res.status(200).json(offers);
-  } catch (err) {
-    console.error("Error fetching offers:", err);
-    res.status(500).json({ error: "Failed to fetch offers" });
-  }
-});
+  // Requested status update section
+  app.patch("/offers/:id", async (req, res) => {
+    const { id } = req.params;
+    const { status, propertyId } = req.body;
 
-
-
-
-// Requested status update section
-app.patch("/offers/:id", async (req, res) => {
-  const { id } = req.params;
-  const { status, propertyId } = req.body;
-
-
-  try {
-    // Update the clicked offer
-    await userMakeOfferCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { status } }
-    );
-
-    //! If accepted, reject all other offers for same property ( ak tu bus ta hbe ???)
-    if (status === "accepted") {
-      await userMakeOfferCollection.updateMany(
-        {
-          propertyId,
-          _id: { $ne: new ObjectId(id) },
-        },
-        { $set: { status: "rejected" } }
+    try {
+      // Update the clicked offer
+      await userMakeOfferCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status } }
       );
+
+      //! If accepted, reject all other offers for same property ( ak tu bus ta hbe ???)
+      if (status === "accepted") {
+        await userMakeOfferCollection.updateMany(
+          {
+            propertyId,
+            _id: { $ne: new ObjectId(id) },
+          },
+          { $set: { status: "rejected" } }
+        );
+      }
+
+      res.status(200).json({ message: "Offer updated successfully" });
+    } catch (err) {
+      console.error("Failed to update offer:", err);
+      res.status(500).json({ error: "Failed to update offer status" });
+    }
+  });
+
+  // admin Manage properties section properties update
+
+  app.patch("/properties/:id", async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    try {
+      const result = await propertiesCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status } } //  update `status` field
+      );
+
+      res.status(200).json(result);
+    } catch (err) {
+      console.error("Error updating status:", err);
+      res.status(500).json({ message: "Failed to update status" });
+    }
+  });
+
+  // Save or update a users info in db
+  app.post("/userInfo", async (req, res) => {
+    const allUserData = req.body;
+
+    allUserData.roll = "user";
+    allUserData.created_at = new Date().toISOString();
+    allUserData.last_loggedIn = new Date().toISOString();
+
+    const query = {
+      email: allUserData?.email,
+    };
+
+    const alreadyExists = await userDataCollection.findOne(query);
+    // console.log("user already Exists", !!alreadyExists);
+
+    if (!!alreadyExists) {
+      const result = await userDataCollection.updateOne(query, {
+         $set: { last_loggedIn: new Date().toISOString() },
+      });
+      return res.send(result);
     }
 
-    res.status(200).json({ message: "Offer updated successfully" });
-  } catch (err) {
-    console.error("Failed to update offer:", err);
-    res.status(500).json({ error: "Failed to update offer status" });
-  }
-});
+    // return console.log(allUserData);
+
+    const result = await userDataCollection.insertOne(allUserData);
+    res.send(result);
+  });
+
+  //? Get all users
+  app.get("/users", async (req, res) => {
+    const users = await userDataCollection.find().toArray();
+    res.send(users);
+  });
 
 
+  app.get("/user/roll/:email",async(req,res)=>{
+    const email = req.params.email;
+    const result = await userDataCollection.findOne({email});
+    if(!result) return res.status(404).send({message: "User Not Found."})
+    res.send({roll: result?.roll});
+  })
 
 
-
-// admin Manage properties section properties update
-
-app.patch("/properties/:id", async (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body;
-
-  try {
-    const result = await propertiesCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { status } } //  update `status` field
-    );
-
-    res.status(200).json(result);
-  } catch (err) {
-    console.error("Error updating status:", err);
-    res.status(500).json({ message: "Failed to update status" });
-  }
-});
-
-
-
-
-
-
-
-
-//   app.get("/sold-properties/:agentEmail", async (req, res) => {
-//   const { agentEmail } = req.params;
-//   console.log("agentEmail:", agentEmail);
+  // Update user (role or fraud)
+// app.patch("/users/:id", async (req, res) => {
+//   const userId = req.params.id;
+//   const { role, status } = req.body;
 
 //   try {
-//     const sold = await ordersCollection
-//       .find({
-//         agentEmail,
-//         transactionId: { $exists: true, $ne: null } // ✅ Must exist
-//       })
-//       .toArray();
+//     const user = await userDataCollection.findOne({ _id: new ObjectId(userId) });
+//     if (!user) return res.status(404).json({ error: "User not found" });
 
-//     console.log("SOLD DATA:", sold);
-//     res.status(200).json(sold);
+//     if (status === "fraud") {
+//       // Mark fraud and remove properties
+//       await userDataCollection.updateOne(
+//         { _id: new ObjectId(userId) },
+//         { $set: { status: "fraud" } }
+//       );
+
+//       await propertiesCollection.deleteMany({ addedBy: user.email });
+
+//       return res.json({ message: "User marked as fraud and properties removed" });
+//     }
+
+//     if (role) {
+//       await userDataCollection.updateOne(
+//         { _id: new ObjectId(userId) },
+//         { $set: { role } }
+//       );
+//     }
+
+//     res.json({ message: "User updated successfully" });
 //   } catch (err) {
-//     console.error("Error fetching sold properties:", err);
-//     res.status(500).json({ message: "Failed to fetch sold properties" });
+//     console.error("Failed to update user", err);
+//     res.status(500).json({ error: "Failed to update user" });
 //   }
-// })
+// });
+
+
+
+
+// Delete user (MongoDB + Firebase Auth)
+// app.delete("/users/:id", async (req, res) => {
+//   const userId = req.params.id;
+
+//   try {
+//     const user = await userDataCollection.findOne({ _id: new ObjectId(userId) });
+//     if (!user) return res.status(404).json({ error: "User not found" });
+
+//     await userDataCollection.deleteOne({ _id: new ObjectId(userId) });
+
+//     // Delete from Firebase Auth
+//     try {
+//       const firebaseUser = await admin.auth().getUserByEmail(user.email);
+//       if (firebaseUser) {
+//         await admin.auth().deleteUser(firebaseUser.uid);
+//       }
+//     } catch (firebaseErr) {
+//       console.error("Firebase delete error:", firebaseErr);
+//     }
+
+//     res.json({ message: "User deleted from database and Firebase" });
+//   } catch (err) {
+//     console.error("Failed to delete user", err);
+//     res.status(500).json({ error: "Failed to delete user" });
+//   }
+// });
+
+
+
+
+
+
+  //   app.get("/sold-properties/:agentEmail", async (req, res) => {
+  //   const { agentEmail } = req.params;
+  //   console.log("agentEmail:", agentEmail);
+
+  //   try {
+  //     const sold = await ordersCollection
+  //       .find({
+  //         agentEmail,
+  //         transactionId: { $exists: true, $ne: null } //  Must exist
+  //       })
+  //       .toArray();
+
+  //     console.log("SOLD DATA:", sold);
+  //     res.status(200).json(sold);
+  //   } catch (err) {
+  //     console.error("Error fetching sold properties:", err);
+  //     res.status(500).json({ message: "Failed to fetch sold properties" });
+  //   }
+  // })
 
   // Create payment intent for order
   //   app.post("/create-payment-intent", async (req, res) => {
@@ -467,18 +558,18 @@ app.patch("/properties/:id", async (req, res) => {
   // OfferedProperties section
   app.patch("/offers/:id/accept", async (req, res) => {
     const id = req.params.id;
-    const offer = await offersCollection.findOne({ _id: new ObjectId(id) });
+    const offer = await userDataCollection.findOne({ _id: new ObjectId(id) });
 
     if (!offer) return res.status(404).send({ error: "Offer not found" });
 
     // 1. Accept this offer
-    await offersCollection.updateOne(
+    await userDataCollection.updateOne(
       { _id: new ObjectId(id) },
       { $set: { status: "accepted" } }
     );
 
     // 2. Reject all other offers for the same property
-    await offersCollection.updateMany(
+    await userDataCollection.updateMany(
       {
         propertyId: offer.propertyId,
         _id: { $ne: new ObjectId(id) },
@@ -559,34 +650,44 @@ app.patch("/properties/:id", async (req, res) => {
     }
   });
 
-  app.delete("/reviews/:id", async (req, res) => {
-    const reviewId = req.params.id;
-    const userEmail = req.body.userEmail; // or get from auth middleware
+app.delete("/reviews/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userEmail } = req.query;
 
-    try {
-      // Find the review to verify ownership (optional but recommended)
-      const review = await reviewCollection.findOne({
-        _id: new ObjectId(reviewId),
-      });
-      if (!review) {
-        return res.status(404).json({ message: "Review not found" });
-      }
-
-      if (review.userEmail !== userEmail) {
-        return res
-          .status(403)
-          .json({ message: "Not authorized to delete this review" });
-      }
-
-      // Delete the review
-      await reviewCollection.deleteOne({ _id: new ObjectId(reviewId) });
-      res.status(200).json({ message: "Review deleted" });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: "Failed to delete review" });
+    //  Validate inputs
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid review ID" });
     }
-  });
+    if (!userEmail) {
+      return res.status(400).json({ message: "Missing userEmail" });
+    }
 
+    // (Optional) Ensure the user owns this review
+    const existing = await reviewCollection.findOne({
+      _id: new ObjectId(id),
+      userEmail: userEmail,
+    });
+    if (!existing) {
+      return res.status(404).json({ message: "Review not found or unauthorized" });
+    }
+
+    //  Perform delete
+    const result = await reviewCollection.deleteOne({
+      _id: new ObjectId(id),
+    });
+
+    if (result.deletedCount === 1) {
+      return res.json({ message: "Review deleted" });
+    } else {
+      // Shouldn’t happen if existing was found, but just in case:
+      return res.status(404).json({ message: "Review not found" });
+    }
+  } catch (err) {
+    console.error(" Error in DELETE /reviews/:id:", err);
+    return res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
   try {
     // Generate jwt token
     app.post("/jwt", async (req, res) => {
