@@ -4,10 +4,20 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
+const e = require("express");
 const stripe = require("stripe")(process.env.STRIPE_SK_KEY);
+const admin = require("firebase-admin");
+const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
+  "utf8"
+);
+const serviceAccount = JSON.parse(decoded);
 
 const port = process.env.PORT || 5000;
 const app = express();
+
+
+
+
 // middleware
 const corsOptions = {
   origin: ["http://localhost:5173", "http://localhost:5174"],
@@ -18,6 +28,13 @@ app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(cookieParser());
+
+// Admin SDK configuration snippet  convert(base64,utf8)
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+module.exports = admin;
 
 const verifyToken = async (req, res, next) => {
   const token = req.cookies?.token;
@@ -370,7 +387,7 @@ async function run() {
 
     if (!!alreadyExists) {
       const result = await userDataCollection.updateOne(query, {
-         $set: { last_loggedIn: new Date().toISOString() },
+        $set: { last_loggedIn: new Date().toISOString() },
       });
       return res.send(result);
     }
@@ -381,179 +398,40 @@ async function run() {
     res.send(result);
   });
 
-  //? Get all users
-  app.get("/users", async (req, res) => {
-    const users = await userDataCollection.find().toArray();
+  //? Get all users and did show admin won data...
+  app.get("/users", verifyToken, async (req, res) => {
+    // console.log(req.user);
+    const filter = {
+      email: {
+        $ne: req?.user?.email,
+      },
+    };
+    const users = await userDataCollection.find(filter).toArray();
     res.send(users);
   });
 
-
-  app.get("/user/roll/:email",async(req,res)=>{
+  app.get("/user/roll/:email", verifyToken, async (req, res) => {
     const email = req.params.email;
-    const result = await userDataCollection.findOne({email});
-    if(!result) return res.status(404).send({message: "User Not Found."})
-    res.send({roll: result?.roll});
-  })
-
+    const result = await userDataCollection.findOne({ email });
+    if (!result) return res.status(404).send({ message: "User Not Found." });
+    res.send({ roll: result?.roll });
+  });
 
   // Update user (role or fraud)
-// app.patch("/users/:id", async (req, res) => {
-//   const userId = req.params.id;
-//   const { role, status } = req.body;
+  app.patch("/user/roll/:email", verifyToken, async (req, res) => {
+    const email = req.params.email;
+    const { roll } = req.body;
+    const filter = { email: email };
+    const updateDoc = {
+      $set: {
+        roll,
+        status: "verified",
+      },
+    };
 
-//   try {
-//     const user = await userDataCollection.findOne({ _id: new ObjectId(userId) });
-//     if (!user) return res.status(404).json({ error: "User not found" });
-
-//     if (status === "fraud") {
-//       // Mark fraud and remove properties
-//       await userDataCollection.updateOne(
-//         { _id: new ObjectId(userId) },
-//         { $set: { status: "fraud" } }
-//       );
-
-//       await propertiesCollection.deleteMany({ addedBy: user.email });
-
-//       return res.json({ message: "User marked as fraud and properties removed" });
-//     }
-
-//     if (role) {
-//       await userDataCollection.updateOne(
-//         { _id: new ObjectId(userId) },
-//         { $set: { role } }
-//       );
-//     }
-
-//     res.json({ message: "User updated successfully" });
-//   } catch (err) {
-//     console.error("Failed to update user", err);
-//     res.status(500).json({ error: "Failed to update user" });
-//   }
-// });
-
-
-
-
-// Delete user (MongoDB + Firebase Auth)
-// app.delete("/users/:id", async (req, res) => {
-//   const userId = req.params.id;
-
-//   try {
-//     const user = await userDataCollection.findOne({ _id: new ObjectId(userId) });
-//     if (!user) return res.status(404).json({ error: "User not found" });
-
-//     await userDataCollection.deleteOne({ _id: new ObjectId(userId) });
-
-//     // Delete from Firebase Auth
-//     try {
-//       const firebaseUser = await admin.auth().getUserByEmail(user.email);
-//       if (firebaseUser) {
-//         await admin.auth().deleteUser(firebaseUser.uid);
-//       }
-//     } catch (firebaseErr) {
-//       console.error("Firebase delete error:", firebaseErr);
-//     }
-
-//     res.json({ message: "User deleted from database and Firebase" });
-//   } catch (err) {
-//     console.error("Failed to delete user", err);
-//     res.status(500).json({ error: "Failed to delete user" });
-//   }
-// });
-
-
-
-
-
-
-  //   app.get("/sold-properties/:agentEmail", async (req, res) => {
-  //   const { agentEmail } = req.params;
-  //   console.log("agentEmail:", agentEmail);
-
-  //   try {
-  //     const sold = await ordersCollection
-  //       .find({
-  //         agentEmail,
-  //         transactionId: { $exists: true, $ne: null } //  Must exist
-  //       })
-  //       .toArray();
-
-  //     console.log("SOLD DATA:", sold);
-  //     res.status(200).json(sold);
-  //   } catch (err) {
-  //     console.error("Error fetching sold properties:", err);
-  //     res.status(500).json({ message: "Failed to fetch sold properties" });
-  //   }
-  // })
-
-  // Create payment intent for order
-  //   app.post("/create-payment-intent", async (req, res) => {
-  //     const { plantId, quantity } = req.body;
-
-  //     const plant = await propertiesCollection.findOne({
-  //       _id: new ObjectId(plantId),
-  //     });
-  //     if (!plant) return res.status(404).send({ message: "plant Not Found" });
-  //     const totalPrice = quantity * plant?.price * 100;
-
-  //     // stripe.......
-  //     const { client_secret } = await stripe.paymentIntents.create({
-  //       amount: totalPrice,
-  //       currency: "usd",
-  //       automatic_payment_methods: {
-  //         enabled: true,
-  //       },
-  //     });
-
-  //     res.send({ clientSecret: client_secret });
-  //   });
-
-  // Save or update a user info in db
-  //   app.post("/user", async (req, res) => {
-  //     const userData = req.body;
-
-  //     // set user rol or date
-  //     userData.role = "customer";
-  //     userData.create_at = new Date().toISOString();
-  //     userData.last_logIn = new Date().toISOString();
-  //     const query = {
-  //       email: userData?.email,
-  //     };
-
-  //     // user email find
-  //     const alreadyExists = await userCollection.findOne(query);
-
-  //     if (!!alreadyExists) {
-  //       const result = await userCollection.updateOne(query, {
-  //         $set: { last_logIn: new Date().toISOString() },
-  //       });
-  //       return res.send(result);
-  //     }
-
-  //     // true or false !! ar jonno
-  //     // console.log('user alreadyExists: ', !!alreadyExists);
-
-  //     // return console.log(userData);
-  //     const result = await userCollection.insertOne(userData);
-  //     res.send(result);
-  //   });
-
-  // get a user's role
-  //   app.get("/user/role/:email", async (req, res) => {
-  //     const email = req.params.email;
-  //     const result = await userCollection.findOne({ email });
-
-  //     if (!result) return res.status(404).send({ message: "User Not Found" });
-
-  //     res.send({ role: result?.role });
-  //   });
-
-  // save orderData in  order collection in db
-  //   app.post("/wishlist", async (req, res) => {
-  //     const orderData = req.body;
-  //     const result = await wishlistCollection.insertOne(orderData);
-  //     res.send(result);
-  //   });
+    const result = await userDataCollection.updateOne(filter, updateDoc);
+    res.send(result);
+  });
 
   // OfferedProperties section
   app.patch("/offers/:id/accept", async (req, res) => {
@@ -596,6 +474,33 @@ async function run() {
       options
     );
     res.send(result);
+  });
+
+  // admin user id deleted
+  app.delete("/user/:id", async (req, res) => {
+    const userId = req.params.id;
+    try {
+      // 1. Find the user from the DB to get Firebase UID/email
+      const user = await userDataCollection.findOne({
+        _id: new ObjectId(userId),
+      });
+
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      // 2. Delete from MongoDB
+      await userDataCollection.deleteOne({ _id: new ObjectId(userId) });
+
+      // 3. Delete from Firebase Auth using email (or store firebase UID in DB)
+      const userRecord = await admin.auth().getUserByEmail(user.email);
+      await admin.auth().deleteUser(userRecord.uid);
+
+      res.status(200).json({ message: "User deleted from DB and Firebase" });
+    } catch (error) {
+      console.error("Delete user error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to delete user", error: error.message });
+    }
   });
 
   // DELETE: Remove a wishlist item
@@ -650,44 +555,48 @@ async function run() {
     }
   });
 
-app.delete("/reviews/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { userEmail } = req.query;
+  app.delete("/reviews/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { userEmail } = req.query;
 
-    //  Validate inputs
-    if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid review ID" });
-    }
-    if (!userEmail) {
-      return res.status(400).json({ message: "Missing userEmail" });
-    }
+      //  Validate inputs
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid review ID" });
+      }
+      if (!userEmail) {
+        return res.status(400).json({ message: "Missing userEmail" });
+      }
 
-    // (Optional) Ensure the user owns this review
-    const existing = await reviewCollection.findOne({
-      _id: new ObjectId(id),
-      userEmail: userEmail,
-    });
-    if (!existing) {
-      return res.status(404).json({ message: "Review not found or unauthorized" });
-    }
+      // (Optional) Ensure the user owns this review
+      const existing = await reviewCollection.findOne({
+        _id: new ObjectId(id),
+        userEmail: userEmail,
+      });
+      if (!existing) {
+        return res
+          .status(404)
+          .json({ message: "Review not found or unauthorized" });
+      }
 
-    //  Perform delete
-    const result = await reviewCollection.deleteOne({
-      _id: new ObjectId(id),
-    });
+      //  Perform delete
+      const result = await reviewCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
 
-    if (result.deletedCount === 1) {
-      return res.json({ message: "Review deleted" });
-    } else {
-      // Shouldn’t happen if existing was found, but just in case:
-      return res.status(404).json({ message: "Review not found" });
+      if (result.deletedCount === 1) {
+        return res.json({ message: "Review deleted" });
+      } else {
+        // Shouldn’t happen if existing was found, but just in case:
+        return res.status(404).json({ message: "Review not found" });
+      }
+    } catch (err) {
+      console.error(" Error in DELETE /reviews/:id:", err);
+      return res
+        .status(500)
+        .json({ message: "Server error", error: err.message });
     }
-  } catch (err) {
-    console.error(" Error in DELETE /reviews/:id:", err);
-    return res.status(500).json({ message: "Server error", error: err.message });
-  }
-});
+  });
   try {
     // Generate jwt token
     app.post("/jwt", async (req, res) => {
