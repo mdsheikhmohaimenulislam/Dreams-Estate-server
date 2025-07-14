@@ -146,6 +146,7 @@ async function run() {
     const {
       userName,
       userEmail,
+      userImage,
       propertyTitle,
       agentName,
       propertyId,
@@ -153,13 +154,14 @@ async function run() {
       comment,
     } = req.body;
 
-    if (!userEmail || !propertyId || !rating || !comment) {
+    if (!userEmail || !propertyId || !rating || !comment || !userImage) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     try {
       const result = await reviewCollection.insertOne({
         userName,
+        userImage,
         userEmail,
         propertyTitle,
         agentName,
@@ -468,8 +470,6 @@ async function run() {
       res.status(500).send({ error: "Internal Server Error" });
     }
   });
-
-
 
   // OfferedProperties section
   app.patch("/offers/:id/accept", async (req, res) => {
