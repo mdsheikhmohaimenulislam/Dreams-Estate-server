@@ -15,9 +15,6 @@ const serviceAccount = JSON.parse(decoded);
 const port = process.env.PORT || 5000;
 const app = express();
 
-
-
-
 // middleware
 const corsOptions = {
   origin: ["http://localhost:5173", "http://localhost:5174"],
@@ -410,28 +407,69 @@ async function run() {
     res.send(users);
   });
 
+  // app.get("/user/roll/:email",verifyToken, async (req, res) => {
+  //   const email = req.params.email;
+  //   const result = await userDataCollection.findOne({ email });
+  //   if (!result) return res.status(404).send({ message: "User Not Found." });
+  //   res.send({ roll: result?.roll });
+  // });
+
   app.get("/user/roll/:email", verifyToken, async (req, res) => {
     const email = req.params.email;
-    const result = await userDataCollection.findOne({ email });
+
+    const result = await userDataCollection.findOne({
+      email: new RegExp(`^${email}$`, "i"), // case-insensitive match
+    });
+
     if (!result) return res.status(404).send({ message: "User Not Found." });
+
     res.send({ roll: result?.roll });
   });
 
-  // Update user (role or fraud)
+  // Update user (role or fraud all data deleted)
   app.patch("/user/roll/:email", verifyToken, async (req, res) => {
     const email = req.params.email;
     const { roll } = req.body;
+
     const filter = { email: email };
     const updateDoc = {
       $set: {
         roll,
-        status: "verified",
+        status: roll === "fraud" ? "fraud" : "verified", // optional: mark status as fraud if needed
       },
     };
 
-    const result = await userDataCollection.updateOne(filter, updateDoc);
-    res.send(result);
+    try {
+      // Update the user role first
+      const userUpdateResult = await userDataCollection.updateOne(
+        filter,
+        updateDoc
+      );
+
+      if (roll === "fraud") {
+        // If user marked as fraud and was an agent, delete all properties posted by this agent
+        const deletePropertiesResult = await propertiesCollection.deleteMany({
+          "agent.email": email,
+        });
+
+        // You can send info about how many properties were deleted, if you want
+        // This helps the frontend show a message like:"User marked as fraud. 3 properties removed."
+        // deletedPropertiesCount: that user or deletedCount If your frontend doesn't care how many were deleted, you can skip that part and simply write:
+        return res.send({
+          userUpdateResult,
+          deletedPropertiesCount: deletePropertiesResult.deletedCount,
+        });
+      }
+
+      // Otherwise, just send user update result
+      res.send(userUpdateResult);
+    } catch (error) {
+      console.error("Error updating user role and properties:", error);
+      res.status(500).send({ error: "Internal Server Error" });
+    }
   });
+
+
 
   // OfferedProperties section
   app.patch("/offers/:id/accept", async (req, res) => {
