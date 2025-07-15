@@ -104,6 +104,26 @@ async function run() {
     }
   });
 
+
+
+
+
+
+
+app.get("/reviews", async (req, res) => {
+  try {
+    const reviews = await reviewCollection.find().toArray();
+    res.send(reviews);
+  } catch (err) {
+    console.error("Error fetching reviews:", err);
+    res.status(500).json({ message: "Failed to fetch reviews" });
+  }
+});
+
+
+
+
+
   // get Reviews section
   app.get("/reviews/:propertyId", async (req, res) => {
     const { propertyId } = req.params;
@@ -213,32 +233,7 @@ async function run() {
   });
 
   // make offer button section
-app.post("/makeOffer", async (req, res) => {
-  try {
-    const offer = req.body;
 
-    // Validate required fields
-    if (!offer.buyerEmail || !offer.propertyId || !offer.offerAmount) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
-
-    const dataToInsert = {
-      ...offer,
-      status: "pending", // Force status to be 'pending'
-      createdAt: new Date(),
-    };
-
-    const result = await userMakeOfferCollection.insertOne(dataToInsert);
-
-    res.status(201).json({
-      message: "Offer created successfully",
-      insertedId: result.insertedId,
-    });
-  } catch (error) {
-    console.error("Error inserting offer:", error);
-    res.status(500).json({ message: "Failed to create offer", error: error.message });
-  }
-});
 
 
 
@@ -272,9 +267,40 @@ app.patch("/makeOffer/payment-success/:offerId", async (req, res) => {
   }
 });
 
+app.post("/makeOffer", async (req, res) => {
+  try {
+    const offer = req.body;
 
+    if (!offer.buyerEmail || !offer.propertyId || !offer.offerAmount) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
 
+    const dataToInsert = {
+      ...offer,
+      status: "pending", // Default status
+      createdAt: new Date(),
+    };
 
+    const result = await userMakeOfferCollection.insertOne(dataToInsert);
+    res.status(201).json({
+      message: "Offer created successfully",
+      insertedId: result.insertedId,
+    });
+  } catch (error) {
+    console.error("Error inserting offer:", error);
+    res.status(500).json({ message: "Failed to create offer", error: error.message });
+  }
+});
+
+app.get("/makeOffer", async (req, res) => {
+  try {
+    const result = await userMakeOfferCollection.find().toArray();
+    res.status(200).json(result);
+  } catch (err) {
+    console.error("Error fetching offers:", err);
+    res.status(500).json({ message: "Failed to fetch offers" });
+  }
+});
 
 
   app.get("/makeOffer/:email", async (req, res) => {
@@ -351,7 +377,7 @@ app.get("/sold-properties/:agentEmail", async (req, res) => {
     const sold = await ordersCollection
       .find({
         agentEmail,
-        status: "bought", // ✅ Only return sold ones
+        status: "bought", // Only return sold ones
       })
       .toArray();
 
