@@ -318,19 +318,19 @@ app.patch("/makeOffer/payment-success/:offerId", async (req, res) => {
 
 app.post("/order", async (req, res) => {
   const orderData = req.body;
-  console.log("Received order data:", orderData);
 
-  // Basic validation example (customize as needed)
   if (!orderData || !orderData.offerAmount || !orderData.transactionId) {
     return res.status(400).send({ message: "Missing required order fields" });
   }
 
+  // Add status = 'bought' here
+  orderData.status = "bought";
+  orderData.createdAt = new Date();
+
   try {
     const result = await ordersCollection.insertOne(orderData);
-    console.log("Order inserted successfully:", result);
     res.send(result);
   } catch (error) {
-    console.error("Error inserting order:", error);
     res.status(500).send({ message: "Failed to insert order", error: error.message });
   }
 });
@@ -347,9 +347,12 @@ app.get("/sold-properties/:agentEmail", async (req, res) => {
   const { agentEmail } = req.params;
 
   try {
-    // Filter orders by agent email (only sold ones)
+    // Filter orders by agentEmail AND status = "bought"
     const sold = await ordersCollection
-      .find({ agentEmail }) // ✅ Filter only this agent's properties
+      .find({
+        agentEmail,
+        status: "bought", // ✅ Only return sold ones
+      })
       .toArray();
 
     res.status(200).json(sold);
@@ -359,6 +362,20 @@ app.get("/sold-properties/:agentEmail", async (req, res) => {
   }
 });
 
+
+
+app.get("/order/:email", async (req, res) => {
+  const { email } = req.params;
+
+  try {
+    // Find orders by buyerEmail (adjust field name if different)
+    const orders = await ordersCollection.find({ buyerEmail: email }).toArray();
+    res.status(200).json(orders);
+  } catch (error) {
+    console.error("Error fetching orders by email:", error);
+    res.status(500).json({ message: "Failed to fetch orders" });
+  }
+});
 
 
 //? PATCH to update transactionId and status
