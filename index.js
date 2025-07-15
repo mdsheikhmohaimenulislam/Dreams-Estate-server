@@ -104,25 +104,15 @@ async function run() {
     }
   });
 
-
-
-
-
-
-
-app.get("/reviews", async (req, res) => {
-  try {
-    const reviews = await reviewCollection.find().toArray();
-    res.send(reviews);
-  } catch (err) {
-    console.error("Error fetching reviews:", err);
-    res.status(500).json({ message: "Failed to fetch reviews" });
-  }
-});
-
-
-
-
+  app.get("/reviews", async (req, res) => {
+    try {
+      const reviews = await reviewCollection.find().toArray();
+      res.send(reviews);
+    } catch (err) {
+      console.error("Error fetching reviews:", err);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
 
   // get Reviews section
   app.get("/reviews/:propertyId", async (req, res) => {
@@ -234,74 +224,74 @@ app.get("/reviews", async (req, res) => {
 
   // make offer button section
 
+  app.patch("/makeOffer/payment-success/:offerId", async (req, res) => {
+    const { offerId } = req.params;
+    const { transactionId } = req.body;
 
-
-
-app.patch("/makeOffer/payment-success/:offerId", async (req, res) => {
-  const { offerId } = req.params;
-  const { transactionId } = req.body;
-
-  if (!transactionId) {
-    return res.status(400).json({ message: "Missing transactionId" });
-  }
-
-  try {
-    const filter = { _id: new ObjectId(offerId) };
-    const updateDoc = {
-      $set: {
-        status: "bought",
-        transactionId,
-      },
-    };
-
-    const result = await userMakeOfferCollection.updateOne(filter, updateDoc);
-
-    if (result.modifiedCount > 0) {
-      res.json({ message: "Offer updated to 'bought'" });
-    } else {
-      res.status(404).json({ message: "Offer not found" });
-    }
-  } catch (error) {
-    console.error("Update error:", error);
-    res.status(500).json({ message: "Failed to update offer", error: error.message });
-  }
-});
-
-app.post("/makeOffer", async (req, res) => {
-  try {
-    const offer = req.body;
-
-    if (!offer.buyerEmail || !offer.propertyId || !offer.offerAmount) {
-      return res.status(400).json({ message: "Missing required fields" });
+    if (!transactionId) {
+      return res.status(400).json({ message: "Missing transactionId" });
     }
 
-    const dataToInsert = {
-      ...offer,
-      status: "pending", // Default status
-      createdAt: new Date(),
-    };
+    try {
+      const filter = { _id: new ObjectId(offerId) };
+      const updateDoc = {
+        $set: {
+          status: "bought",
+          transactionId,
+        },
+      };
 
-    const result = await userMakeOfferCollection.insertOne(dataToInsert);
-    res.status(201).json({
-      message: "Offer created successfully",
-      insertedId: result.insertedId,
-    });
-  } catch (error) {
-    console.error("Error inserting offer:", error);
-    res.status(500).json({ message: "Failed to create offer", error: error.message });
-  }
-});
+      const result = await userMakeOfferCollection.updateOne(filter, updateDoc);
 
-app.get("/makeOffer", async (req, res) => {
-  try {
-    const result = await userMakeOfferCollection.find().toArray();
-    res.status(200).json(result);
-  } catch (err) {
-    console.error("Error fetching offers:", err);
-    res.status(500).json({ message: "Failed to fetch offers" });
-  }
-});
+      if (result.modifiedCount > 0) {
+        res.json({ message: "Offer updated to 'bought'" });
+      } else {
+        res.status(404).json({ message: "Offer not found" });
+      }
+    } catch (error) {
+      console.error("Update error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to update offer", error: error.message });
+    }
+  });
 
+  app.post("/makeOffer", async (req, res) => {
+    try {
+      const offer = req.body;
+
+      if (!offer.buyerEmail || !offer.propertyId || !offer.offerAmount) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const dataToInsert = {
+        ...offer,
+        status: "pending", // Default status
+        createdAt: new Date(),
+      };
+
+      const result = await userMakeOfferCollection.insertOne(dataToInsert);
+      res.status(201).json({
+        message: "Offer created successfully",
+        insertedId: result.insertedId,
+      });
+    } catch (error) {
+      console.error("Error inserting offer:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to create offer", error: error.message });
+    }
+  });
+
+  app.get("/makeOffer", async (req, res) => {
+    try {
+      const result = await userMakeOfferCollection.find().toArray();
+      res.status(200).json(result);
+    } catch (err) {
+      console.error("Error fetching offers:", err);
+      res.status(500).json({ message: "Failed to fetch offers" });
+    }
+  });
 
   app.get("/makeOffer/:email", async (req, res) => {
     try {
@@ -342,24 +332,26 @@ app.get("/makeOffer", async (req, res) => {
     res.send({ clientSecret: paymentIntent.client_secret });
   });
 
-app.post("/order", async (req, res) => {
-  const orderData = req.body;
+  app.post("/order", async (req, res) => {
+    const orderData = req.body;
 
-  if (!orderData || !orderData.offerAmount || !orderData.transactionId) {
-    return res.status(400).send({ message: "Missing required order fields" });
-  }
+    if (!orderData || !orderData.offerAmount || !orderData.transactionId) {
+      return res.status(400).send({ message: "Missing required order fields" });
+    }
 
-  // Add status = 'bought' here
-  orderData.status = "bought";
-  orderData.createdAt = new Date();
+    // Add status = 'bought' here
+    orderData.status = "bought";
+    orderData.createdAt = new Date();
 
-  try {
-    const result = await ordersCollection.insertOne(orderData);
-    res.send(result);
-  } catch (error) {
-    res.status(500).send({ message: "Failed to insert order", error: error.message });
-  }
-});
+    try {
+      const result = await ordersCollection.insertOne(orderData);
+      res.send(result);
+    } catch (error) {
+      res
+        .status(500)
+        .send({ message: "Failed to insert order", error: error.message });
+    }
+  });
 
   //   fiend all data get  property
   app.get("/order", async (req, res) => {
@@ -369,62 +361,61 @@ app.post("/order", async (req, res) => {
   });
 
   // Get all sold properties for a specific agent
-app.get("/sold-properties/:agentEmail", async (req, res) => {
-  const { agentEmail } = req.params;
+  app.get("/sold-properties/:agentEmail", async (req, res) => {
+    const { agentEmail } = req.params;
 
-  try {
-    // Filter orders by agentEmail AND status = "bought"
-    const sold = await ordersCollection
-      .find({
-        agentEmail,
-        status: "bought", // Only return sold ones
-      })
-      .toArray();
+    try {
+      // Filter orders by agentEmail AND status = "bought"
+      const sold = await ordersCollection
+        .find({
+          agentEmail,
+          status: "bought", // Only return sold ones
+        })
+        .toArray();
 
-    res.status(200).json(sold);
-  } catch (err) {
-    console.error("Error fetching sold properties:", err);
-    res.status(500).json({ message: "Failed to fetch sold properties" });
-  }
-});
+      res.status(200).json(sold);
+    } catch (err) {
+      console.error("Error fetching sold properties:", err);
+      res.status(500).json({ message: "Failed to fetch sold properties" });
+    }
+  });
 
+  app.get("/order/:email", async (req, res) => {
+    const { email } = req.params;
 
+    try {
+      // Find orders by buyerEmail (adjust field name if different)
+      const orders = await ordersCollection
+        .find({ buyerEmail: email })
+        .toArray();
+      res.status(200).json(orders);
+    } catch (error) {
+      console.error("Error fetching orders by email:", error);
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
 
-app.get("/order/:email", async (req, res) => {
-  const { email } = req.params;
+  //? PATCH to update transactionId and status
+  app.patch("/order/payment-success/:id", async (req, res) => {
+    const { id } = req.params;
+    const { transactionId } = req.body;
 
-  try {
-    // Find orders by buyerEmail (adjust field name if different)
-    const orders = await ordersCollection.find({ buyerEmail: email }).toArray();
-    res.status(200).json(orders);
-  } catch (error) {
-    console.error("Error fetching orders by email:", error);
-    res.status(500).json({ message: "Failed to fetch orders" });
-  }
-});
-
-
-//? PATCH to update transactionId and status
-app.patch("/order/payment-success/:id", async (req, res) => {
-  const { id } = req.params;
-  const { transactionId } = req.body;
-
-  try {
-    const result = await ordersCollection.updateOne(
-      { _id: new ObjectId(id) },
-      {
-        $set: {
-          transactionId: transactionId,
-          status: "bought",
-        },
-      }
-    );
-    res.send(result);
-  } catch (err) {
-    console.error("Error updating order:", err);
-    res.status(500).json({ message: "Failed to update order" });
-  }
-});
+    try {
+      const result = await ordersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            transactionId: transactionId,
+            status: "bought",
+          },
+        }
+      );
+      res.send(result);
+    } catch (err) {
+      console.error("Error updating order:", err);
+      res.status(500).json({ message: "Failed to update order" });
+    }
+  });
 
   // Requested agent email fine
   app.get("/agent-offers/:agentEmail", async (req, res) => {
@@ -576,18 +567,25 @@ app.patch("/order/payment-success/:id", async (req, res) => {
         updateDoc
       );
 
+      // Step 2: If fraud, update all related properties to status "fraud"
       if (roll === "fraud") {
-        // If user marked as fraud and was an agent, delete all properties posted by this agent
+        const updatePropertiesResult = await propertiesCollection.updateMany(
+          { "agent.email": email },
+          { $set: { status: "fraud" } }
+        );
+
+        // Step 3: Delete those properties after marking as fraud
         const deletePropertiesResult = await propertiesCollection.deleteMany({
           "agent.email": email,
+          status: "fraud",
         });
 
-        // You can send info about how many properties were deleted, if you want
-        // This helps the frontend show a message like:"User marked as fraud. 3 properties removed."
-        // deletedPropertiesCount: that user or deletedCount If your frontend doesn't care how many were deleted, you can skip that part and simply write:
         return res.send({
           userUpdateResult,
+          updatedPropertiesCount: updatePropertiesResult.modifiedCount,
           deletedPropertiesCount: deletePropertiesResult.deletedCount,
+          message:
+            "User marked as fraud. Related properties were updated and deleted.",
         });
       }
 
@@ -695,12 +693,12 @@ app.patch("/order/payment-success/:id", async (req, res) => {
   });
 
   // Deleted section
-app.delete("/properties/:id", async (req, res) => {
-  const id = req.params.id;
-  const query = { _id: new ObjectId(id) };
-  const result = await propertiesCollection.deleteOne(query);  // await here
-  res.send(result);
-});
+  app.delete("/properties/:id", async (req, res) => {
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
+    const result = await propertiesCollection.deleteOne(query); // await here
+    res.send(result);
+  });
 
   app.delete("/my-reviews/:id", async (req, res) => {
     const { id } = req.params;
