@@ -213,15 +213,69 @@ async function run() {
   });
 
   // make offer button section
-  app.post("/makeOffer", async (req, res) => {
-    const data = {
-      ...req.body,
+app.post("/makeOffer", async (req, res) => {
+  try {
+    const offer = req.body;
+
+    // Validate required fields
+    if (!offer.buyerEmail || !offer.propertyId || !offer.offerAmount) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const dataToInsert = {
+      ...offer,
+      status: "pending", // Force status to be 'pending'
       createdAt: new Date(),
     };
 
-    const result = await userMakeOfferCollection.insertOne(data);
-    res.send(result);
-  });
+    const result = await userMakeOfferCollection.insertOne(dataToInsert);
+
+    res.status(201).json({
+      message: "Offer created successfully",
+      insertedId: result.insertedId,
+    });
+  } catch (error) {
+    console.error("Error inserting offer:", error);
+    res.status(500).json({ message: "Failed to create offer", error: error.message });
+  }
+});
+
+
+
+app.patch("/makeOffer/payment-success/:offerId", async (req, res) => {
+  const { offerId } = req.params;
+  const { transactionId } = req.body;
+
+  if (!transactionId) {
+    return res.status(400).json({ message: "Missing transactionId" });
+  }
+
+  try {
+    const filter = { _id: new ObjectId(offerId) };
+    const updateDoc = {
+      $set: {
+        status: "bought",
+        transactionId,
+      },
+    };
+
+    const result = await userMakeOfferCollection.updateOne(filter, updateDoc);
+
+    if (result.modifiedCount > 0) {
+      res.json({ message: "Offer updated to 'bought'" });
+    } else {
+      res.status(404).json({ message: "Offer not found" });
+    }
+  } catch (error) {
+    console.error("Update error:", error);
+    res.status(500).json({ message: "Failed to update offer", error: error.message });
+  }
+});
+
+
+
+
+
 
   app.get("/makeOffer/:email", async (req, res) => {
     try {
@@ -262,18 +316,24 @@ async function run() {
     res.send({ clientSecret: paymentIntent.client_secret });
   });
 
-  // save order data in orders collection in db
-  app.post("/order", async (req, res) => {
-    const orderData = req.body;
-    try {
-      const result = await ordersCollection.insertOne(orderData);
-      res.send(result);
-    } catch (error) {
-      res
-        .status(500)
-        .send({ message: "Failed to insert order", error: error.message });
-    }
-  });
+app.post("/order", async (req, res) => {
+  const orderData = req.body;
+  console.log("Received order data:", orderData);
+
+  // Basic validation example (customize as needed)
+  if (!orderData || !orderData.offerAmount || !orderData.transactionId) {
+    return res.status(400).send({ message: "Missing required order fields" });
+  }
+
+  try {
+    const result = await ordersCollection.insertOne(orderData);
+    console.log("Order inserted successfully:", result);
+    res.send(result);
+  } catch (error) {
+    console.error("Error inserting order:", error);
+    res.status(500).send({ message: "Failed to insert order", error: error.message });
+  }
+});
 
   //   fiend all data get  property
   app.get("/order", async (req, res) => {
@@ -283,20 +343,45 @@ async function run() {
   });
 
   // Get all sold properties for a specific agent
-  app.get("/sold-properties/:agentEmail", async (req, res) => {
-    const { agentEmail } = req.params;
-    // console.log("agentEmail:", agentEmail);
+app.get("/sold-properties/:agentEmail", async (req, res) => {
+  const { agentEmail } = req.params;
 
-    try {
-      const sold = await ordersCollection.find({}).toArray();
+  try {
+    // Filter orders by agent email (only sold ones)
+    const sold = await ordersCollection
+      .find({ agentEmail }) // ✅ Filter only this agent's properties
+      .toArray();
 
-      //   console.log("SOLD DATA:", sold);
-      res.status(200).json(sold);
-    } catch (err) {
-      console.error("Error fetching sold properties:", err);
-      res.status(500).json({ message: "Failed to fetch sold properties" });
-    }
-  });
+    res.status(200).json(sold);
+  } catch (err) {
+    console.error("Error fetching sold properties:", err);
+    res.status(500).json({ message: "Failed to fetch sold properties" });
+  }
+});
+
+
+
+//? PATCH to update transactionId and status
+app.patch("/order/payment-success/:id", async (req, res) => {
+  const { id } = req.params;
+  const { transactionId } = req.body;
+
+  try {
+    const result = await ordersCollection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          transactionId: transactionId,
+          status: "bought",
+        },
+      }
+    );
+    res.send(result);
+  } catch (err) {
+    console.error("Error updating order:", err);
+    res.status(500).json({ message: "Failed to update order" });
+  }
+});
 
   // Requested agent email fine
   app.get("/agent-offers/:agentEmail", async (req, res) => {
@@ -567,12 +652,12 @@ async function run() {
   });
 
   // Deleted section
-  app.delete("/properties/:id", async (req, res) => {
-    const id = req.params.id;
-    const query = { _id: new ObjectId(id) };
-    const result = propertiesCollection.deleteOne(query);
-    res.send(result);
-  });
+app.delete("/properties/:id", async (req, res) => {
+  const id = req.params.id;
+  const query = { _id: new ObjectId(id) };
+  const result = await propertiesCollection.deleteOne(query);  // await here
+  res.send(result);
+});
 
   app.delete("/my-reviews/:id", async (req, res) => {
     const { id } = req.params;
