@@ -129,7 +129,7 @@ async function run() {
     });
 
     // add a properties in db
-    app.post("/add-properties", verifyToken, async (req, res) => {
+    app.post("/add-properties" ,async (req, res) => {
       const properties = req.body;
       const result = await propertiesCollection.insertOne(properties);
       res.send(result);
