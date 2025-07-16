@@ -15,26 +15,27 @@ const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString(
 const serviceAccount = JSON.parse(decoded);
 
 // middleware
-const corsOptions = {
-  origin: [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "https://dreams-estate.web.app",
-  ],
-  credentials: true,
-  optionSuccessStatus: 200,
-};
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://dreams-estate.web.app", // your production frontends
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://dreams-estate.web.app",
-    ],
-    credentials: true,
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like curl, Postman)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.indexOf(origin) === -1) {
+        const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
+        return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+    },
+    credentials: true,  // if you use cookies or auth headers
   })
 );
-
 app.use(express.json());
 app.use(cookieParser());
 
@@ -202,7 +203,7 @@ app.get("/properties", async (req, res) => {
     });
 
     // Public access — NO token needed
-    app.get("/reviews", async (req, res) => {
+    app.get("/reviews",async (req, res) => {
       try {
         const reviews = await reviewCollection
           .find()
@@ -218,7 +219,7 @@ app.get("/properties", async (req, res) => {
     });
 
     // get Reviews section
-    app.get("/reviews/:propertyId", async (req, res) => {
+    app.get("/reviews/:propertyId", verifyToken,async (req, res) => {
       const { propertyId } = req.params;
       try {
         const reviews = await reviewCollection
@@ -234,7 +235,7 @@ app.get("/properties", async (req, res) => {
     });
 
     // Get all reviews by user email
-    app.get("/my-reviews/:email", async (req, res) => {
+    app.get("/my-reviews/:email",verifyToken , async (req, res) => {
       const { email } = req.params;
 
       try {
@@ -399,7 +400,7 @@ app.get("/properties", async (req, res) => {
       }
     });
 
-    app.get("/makeOffer/:email", async (req, res) => {
+    app.get("/makeOffer/:email",verifyToken ,async (req, res) => {
       try {
         const email = req.params.email;
 
@@ -636,12 +637,12 @@ app.get("/properties", async (req, res) => {
       res.send(user);
     });
 
-    // app.get("/user/roll/:email",verifyToken, async (req, res) => {
-    //   const email = req.params.email;
-    //   const result = await userDataCollection.findOne({ email });
-    //   if (!result) return res.status(404).send({ message: "User Not Found." });
-    //   res.send({ roll: result?.roll });
-    // });
+    app.get("/user/roll/:email",verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const result = await userDataCollection.findOne({ email });
+      if (!result) return res.status(404).send({ message: "User Not Found." });
+      res.send({ roll: result?.roll });
+    });
 
     app.get("/user/roll/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
