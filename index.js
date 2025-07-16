@@ -219,7 +219,7 @@ app.get("/properties", async (req, res) => {
     });
 
     // get Reviews section
-    app.get("/reviews/:propertyId", verifyToken,async (req, res) => {
+    app.get("/reviews/:propertyId",async (req, res) => {
       const { propertyId } = req.params;
       try {
         const reviews = await reviewCollection
