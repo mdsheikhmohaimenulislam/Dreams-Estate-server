@@ -1,6 +1,7 @@
 node_modules
 .env
 
+# dreams-estate-firebase-adminsdk-fbsvc-6c9f8e8393.json
 dreams-estate-firebase-adminsdk-fbsvc-6c9f8e8393.json
 
 .vercel
