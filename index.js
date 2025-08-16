@@ -18,7 +18,8 @@ const serviceAccount = JSON.parse(decoded);
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
-  "https://dreams-estate.web.app", // your production frontends
+  "https://dreams-estate.web.app",
+  "https://dreams-estate.vercel.app", // your production frontends
 ];
 
 app.use(
@@ -201,6 +202,15 @@ app.get("/properties", async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
       }
     });
+
+
+
+    // New Marathon Sort section
+    app.get("/new-properties", async(req,res)=>{
+      const result = await propertiesCollection.find().sort({_id: -1}).limit(8).toArray();
+      res.send(result);
+    })
+
 
     // Public access — NO token needed
     app.get("/reviews",async (req, res) => {
